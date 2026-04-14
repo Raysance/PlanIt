@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanIt - 计划追踪</title>
+    <link rel="icon" type="image/svg+xml" href="/planit/static/favicon.svg">
+    <style>
+        /* CSS Reset and Variables */
+        :root {
+            --bg-color: #f7f9fa;
+            --surface-color: #ffffff;
+            --text-main: #2d3748;
+            --text-secondary: #718096;
+            --border-color: #e2e8f0;
+            --accent-color: #38a169; /* 绿色系主色调 */
+            --accent-hover: #2f855a;
+            --error-color: #e53e3e;
+            --completed-color: #a0aec0;
+        }
+
+        .lang-toggle-btn {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            z-index: 1001;
+            width: auto !important;
+            padding: 4px 10px !important;
+            font-size: 12px !important;
+            height: 30px;
+            border-radius: 15px;
+            background: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        body.no-scroll {
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1, h2, h3 {
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+
+        h1 {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+            background-color: #fff;
+            font-family: inherit;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        button.secondary {
+            background-color: var(--surface-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        button.secondary:hover {
+            background-color: var(--bg-color);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            background-color: var(--text-main);
+            color: white;
+            border-radius: 4px;
+            transition: opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 2000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .app-header {
+            display: flex; justify-content: space-between; align-items: center;
+            height: 60px; padding: 0 20px; background: var(--surface-color); border-bottom: 1px solid var(--border-color);
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 100;
+        }
+
+        .fixed-filters {
+            position: fixed; top: 60px; left: 0; width: 100%; background: var(--surface-color); z-index: 99; border-bottom: 1px solid var(--border-color); padding: 12px 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+        }
+
+        .main-scroll-area {
+            padding-top: 260px;
+            padding-bottom: 100px;
+            min-height: 100vh;
+            transition: padding-top 0.3s ease;
+        }
+
+        .fab {
+            position: fixed; right: 20px; bottom: 30px;
+            width: 56px; height: 56px; border-radius: 28px; background: var(--accent-color); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; z-index: 95; border: none; padding: 0; 
+            transition: transform 0.2s;
+        }
+        .fab:active { transform: scale(0.95); }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content {
+            background: var(--surface-color); width: 90%; max-width: 500px;
+            max-height: 90vh; border-radius: 12px; 
+            position: relative; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .modal-body {
+            overflow-y: auto; padding: 24px; flex: 1;
+        }
+        .modal-header {
+            padding: 20px 24px; border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+            background: var(--surface-color);
+        }
+        .modal-footer {
+            padding: 16px 24px; border-top: 1px solid var(--border-color); flex-shrink: 0;
+            display: flex; gap: 12px; background: var(--surface-color);
+        }
+        .modal-close {
+            position: absolute; top: 12px; right: 12px;
+            background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-secondary); width: 36px; height: 36px; border-radius: 18px; display: flex; align-items: center; justify-content: center; z-index: 10; cursor: pointer;
+            padding: 0;
+        }
+        
+        .plan-card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .plan-card:active {
+            transform: scale(0.98);
+        }
+
+        .plan-card.term-short { background-color: #f7faf8;}
+        .plan-card.term-medium { background-color: #fefcf5; }
+        .plan-card.term-long { background-color: #fdf5f5; }
+        
+        .plan-card.completed {
+            opacity: 0.6;
+            background-color: #f8fafc;
+            border-color: var(--border-color);
+            box-shadow: none;
+        }
+        
+        .plan-card.completed .pc-title {
+            text-decoration: line-through;
+            color: var(--completed-color);
+        }
+
+        .pc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .pc-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .pc-tag {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            border: 1px solid var(--border-color);
+            display: inline-block;
+        }
+        
+        .pc-tag.short { border-color: #38a169; color: #2f855a; background-color: #f0fff4; }
+        .pc-tag.medium { border-color: #d69e2e; color: #b7791f; background-color: #fffff0; }
+        .pc-tag.long { border-color: #e53e3e; color: #c53030; background-color: #fff5f5; }
+
+        .pc-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .pc-details {
+            font-size: 14px;
+            color: var(--text-main);
+            background: var(--bg-color);
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        .pc-review {
+            font-size: 14px;
+            color: var(--text-main);
+            background: #f0fff4;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+
+        .pc-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 12px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        
+        .filter-btn {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .filter-btn.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .checkbox-container input {
+            width: auto;
+            margin-bottom: 0;
+        }
+    </style>
+    <link rel="stylesheet" href="/planit/static/calendar.css">
+</head>
+<body>
+
+<div id="toast" class="toast"></div>
+
+<!-- 语言切换按钮 (未登录时显示) -->
+<button id="lang-toggle-login" class="lang-toggle-btn" onclick="toggleLanguage()">EN / 中</button>
+
+<!-- 登录模块 -->
+<div id="login-section" class="container" style="padding-top: 10vh;">
+    <h1 data-i18n="app_title">PlanIt</h1>
+    <div class="card">
+        <h2 style="text-align: center;" data-i18n="login_header">登录 / 创建</h2>
+        <p style="text-align: center;" data-i18n="login_desc">输入已有口令登录，或留空创建新计划表</p>
+        <input type="text" id="code-input" data-i18n-placeholder="login_placeholder" placeholder="输入口令或留空以新建" style="text-align: center; font-size: 16px; letter-spacing: 1px;">
+        <button onclick="login()" data-i18n="login_btn">进入计划表</button>
+    </div>
+</div>
+
+<!-- 首页模块 -->
+<div id="main-section" class="hidden">
+    <div class="app-header">
+        <h2 style="margin: 0; font-size: 18px;">PlanIt</h2>
+        <div style="display: flex; gap: 8px;">
+            <button class="secondary" style="width: 36px; height: 36px; padding: 0; border-radius: 18px; display: flex; justify-content: center; align-items: center;" onclick="if(window.openCalendarModal) { window.openCalendarModal(); } else { alert('日历模块尚未加载完成或存在缓存，请强制刷新(Ctrl+F5)'); }">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            </button>
+            <button class="secondary" style="width: 36px; height: 36px; padding: 0; border-radius: 18px; display: flex; justify-content: center; align-items: center;" onclick="openSettingsModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="fixed-filters">
+        <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="position: relative; flex: 1;">
+                    <svg style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="search-input" data-i18n-placeholder="search_placeholder" placeholder="搜索任务名称或详情..." oninput="renderPlans()" style="margin-bottom: 0; padding-left: 32px; width: 100%; border-radius: 20px;">
+                </div>
+                <button class="secondary filter-toggle-btn" onclick="toggleFilters()" style="width: auto; padding: 0 12px; height: 38px; border-radius: 20px; font-size: 13px; margin: 0; flex-shrink: 0; display: flex; align-items: center;">
+                    <span id="filter-toggle-text" data-i18n="filter_collapse">收起筛选</span>
+                    <svg id="filter-toggle-icon" style="transition: transform 0.3s; margin-left: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            
+            <div id="extra-filters" style="display: flex; flex-direction: column; gap: 8px; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 200px; opacity: 1;">
+                <div class="filter-group" style="margin-bottom: 0; padding-bottom: 4px; border-bottom: none; align-items: center;">
+                    <span style="font-size:12px; color:var(--text-secondary); margin-right:4px; flex-shrink: 0;" data-i18n="filter_status">状态:</span>
+                    <div class="filter-btn active" onclick="setStatusFilter('all', this)" data-i18n="status_all">全部</div>
+                    <div class="filter-btn" onclick="setStatusFilter('pending', this)" data-i18n="status_pending">未完</div>
+                    <div class="filter-btn" onclick="setStatusFilter('completed', this)" data-i18n="status_completed">已完</div>
+                    <div class="filter-btn" onclick="setStatusFilter('overdue', this)" style="color: var(--error-color); border-color: rgba(229,62,62,0.3); background: rgba(229,62,62,0.05);" data-i18n="status_overdue">逾期</div>
+                </div>
+
+                <div class="filter-group" style="margin-bottom: 0; padding-bottom: 4px; border-bottom: none; align-items: center;">
+                    <span style="font-size:12px; color:var(--text-secondary); margin-right:4px; flex-shrink: 0;" data-i18n="filter_term">分类:</span>
+                    <div class="filter-btn active" onclick="setTermFilter('all', this)" data-i18n="term_all">全部</div>
+                    <div class="filter-btn" onclick="setTermFilter('short', this)" data-i18n="term_short">短期</div>
+                    <div class="filter-btn" onclick="setTermFilter('medium', this)" data-i18n="term_medium">中期</div>
+                    <div class="filter-btn" onclick="setTermFilter('long', this)" data-i18n="term_long">长期</div>
+                </div>
+                
+                <div class="checkbox-container" style="margin-bottom: 0;">
+                    <input type="checkbox" id="filter-today" onchange="renderPlans()">
+                    <label for="filter-today" style="font-size: 13px; cursor: pointer; color: var(--text-secondary);" data-i18n="filter_today">只看今天内到期的未完成任务</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container main-scroll-area" style="display: flex; position: relative;">
+        <div id="timeline-sidebar" style="width: 40px; margin-right: 12px; position: sticky; top: 250px; padding-top: 12px; align-self: flex-start; max-height: calc(100vh - 270px); overflow-y: auto; text-align: center; border-right: 2px solid var(--border-color); transition: top 0.3s ease, max-height 0.3s ease;">
+            <!-- 动态日期点 -->
+        </div>
+
+        <div style="flex: 1; width: calc(100% - 52px);">
+        
+        <div id="plans-container">
+            <!-- 动态列表 -->
+        </div>
+        </div>
+    </div>
+    <!-- 浮动按钮 -->
+    <button class="fab" onclick="openPlanModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    </button>
+</div>
+
+</div>
+
+<!-- 弹窗：查看计划详情 -->
+<div id="plan-detail-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" style="top: 16px; right: 16px;" onclick="closePlanDetailModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="modal-header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-right: 28px;">
+                <h3 id="plan-detail-title" style="margin-bottom: 0; font-size: 18px; word-break: break-all;"></h3>
+                <span id="plan-detail-term" class="pc-tag"></span>
+            </div>
+        </div>
+        
+        <div class="modal-body">
+            <div class="pc-meta" style="margin-top: 0px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <span id="plan-detail-created" style="font-size: 13px; color: var(--text-secondary);"></span>
+                <div style="font-size: 14px; font-weight: 500;">
+                    <div id="plan-detail-start" style="color: var(--text-main); margin-bottom: 4px;"></div>
+                    <div id="plan-detail-end"></div>
+                </div>
+            </div>
+
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_details_view">详情：</label>
+            <div id="plan-detail-content" class="pc-details" style="margin-bottom: 16px; max-height: 40vh; overflow-y: auto;"></div>
+
+            <div id="plan-detail-review-wrapper" class="hidden">
+                <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_review_view">复盘：</label>
+                <div id="plan-detail-review" class="pc-review" style="max-height: 40vh; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="secondary" style="width: 100%; border-radius: 8px; margin: 0; justify-content: center;" onclick="editPlanFromDetail()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-5M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                <span data-i18n="btn_edit">编辑此计划</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗：新增/编辑计划 -->
+<div id="plan-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="modal-close" style="top: 16px; right: 16px;" onclick="closePlanModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="modal-header">
+            <h3 id="plan-form-title" style="margin-bottom: 0; margin-right: 28px;" data-i18n="form_title_new">新增计划</h3>
+        </div>
+        
+        <div class="modal-body">
+            <input type="hidden" id="plan-id">
+            
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_name">任务名称</label>
+            <input type="text" id="plan-name" data-i18n-placeholder="placeholder_name" placeholder="简短描述任务内容">
+            
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_term">任务分类</label>
+            <select id="plan-term">
+                <option value="short" data-i18n="term_short">短期任务</option>
+                <option value="medium" data-i18n="term_medium">中期任务</option>
+                <option value="long" data-i18n="term_long">长期任务</option>
+            </select>
+
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_start">预期开始时间</label>
+            <input type="datetime-local" id="plan-time-start">
+
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_end">预期结束时间</label>
+            <input type="datetime-local" id="plan-time-end">
+            
+            <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_details">预计完成详情</label>
+            <textarea id="plan-details" data-i18n-placeholder="placeholder_details" placeholder="详细描述任务要求、步骤等..."></textarea>
+            
+            <div id="review-section">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="plan-completed" onchange="toggleReviewSection()">
+                    <label for="plan-completed" style="font-size: 14px; cursor: pointer;" data-i18n="label_mark_complete">标记为已完成（完成后可复盘）</label>
+                </div>
+                
+                <div id="review-input-area" class="hidden">
+                    <label style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px; display: block;" data-i18n="label_review">任务复盘</label>
+                    <textarea id="plan-review" data-i18n-placeholder="placeholder_review" placeholder="任务完成情况总结、心得..."></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button onclick="savePlan()" id="btn-save-plan" style="margin-top: 0; flex: 2; border-radius: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                <span data-i18n="btn_save">保存计划</span>
+            </button>
+            <button id="btn-delete-plan" class="secondary hidden" onclick="deletePlan()" style="margin-top: 0; flex: 1; border-radius: 8px; color: var(--error-color); border-color: var(--border-color);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                <span data-i18n="btn_delete">删除</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗：设置 -->
+<div id="settings-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 320px; height: auto;">
+        <button class="modal-close" style="top: 16px; right: 16px;" onclick="closeSettingsModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="modal-header">
+            <h3 style="margin-bottom: 0;" data-i18n="settings_title">设置</h3>
+        </div>
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="margin-bottom: 8px;">
+                <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;" data-i18n="settings_lang">界面语言</label>
+                <select id="lang-select" onchange="setLanguage(this.value)" style="margin-bottom: 0;">
+                    <option value="en">English (Default)</option>
+                    <option value="zh">简体中文</option>
+                </select>
+            </div>
+            <button class="secondary" style="justify-content: center; border-radius: 8px;" onclick="copyCode()" data-i18n="btn_copy_code">复制口令</button>
+            <button class="secondary" style="justify-content: center; border-radius: 8px;" onclick="exportJSON()" data-i18n="btn_export">导出为 JSON</button>
+            <button style="justify-content: center; border-radius: 8px; background-color: var(--error-color);" onclick="logout()" data-i18n="btn_logout">退出登录</button>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗：日历导航 -->
+<div id="calendar-modal" class="modal-overlay">
+    <div class="modal-content calendar-modal-content" style="max-height: 80vh; max-width: 360px;">
+        <button class="modal-close" style="top: 10px; right: 10px;" onclick="window.closeCalendarModal()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <div class="modal-header" style="padding: 16px;">
+            <h3 style="margin-bottom: 0; font-size: 16px;">日历导航</h3>
+        </div>
+        <div class="calendar-weekdays">
+            <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="calendar-scroll-area" id="calendar-scroll-area">
+            <!-- 动态注入月份区块 -->
+        </div>
+    </div>
+</div>
+
+<script src="/planit/static/calendar.js?v=custom2"></script>
+<script>
+    const i18n = {
+        en: {
+            app_title: "PlanIt",
+            login_header: "Login / Create",
+            login_desc: "Enter your code to login, or leave blank to create a new plan list.",
+            login_placeholder: "Enter code or leave blank",
+            login_btn: "Enter PlanIt",
+            search_placeholder: "Search task name or details...",
+            filter_collapse: "Collapse",
+            filter_expand: "Expand Filters",
+            filter_status: "Status:",
+            filter_term: "Term:",
+            filter_today: "Due today (uncompleted)",
+            status_all: "All",
+            status_pending: "Pending",
+            status_completed: "Done",
+            status_overdue: "Overdue",
+            term_all: "All",
+            term_short: "Short",
+            term_medium: "Medium",
+            term_long: "Long",
+            btn_edit: "Edit this Plan",
+            form_title_new: "New Plan",
+            form_title_edit: "Edit Plan",
+            label_name: "Task Name",
+            placeholder_name: "Brief description",
+            label_term: "Term",
+            label_start: "Start Time",
+            label_end: "End Time",
+            label_details: "Execution Details",
+            placeholder_details: "More info...",
+            label_mark_complete: "Mark as Completed",
+            label_review: "Review & Insights",
+            placeholder_review: "How did it go?",
+            btn_delete: "Delete",
+            btn_save: "Save",
+            settings_title: "Settings",
+            settings_lang: "Language",
+            btn_copy_code: "Copy Code",
+            btn_export: "Export to JSON",
+            btn_logout: "Logout",
+            msg_logging_in: "Logging in...",
+            msg_creating: "Creating...",
+            msg_login_success: "Success!",
+            msg_login_fail: "Invalid code",
+            msg_copy_success: "Copied!",
+            msg_delete_confirm: "Delete this plan?",
+            msg_save_success: "Saved!",
+            msg_overdue: "Overdue",
+            msg_completed_at: "Completed: ",
+            msg_created_at: "Created at: ",
+            msg_no_date: "No due date",
+            msg_today: "Today",
+            msg_yesterday: "Yesterday",
+            msg_tomorrow: "Tomorrow",
+            label_details_view: "Details:",
+            label_review_view: "Review:",
+            msg_calendar_not_ready: "Calendar not ready",
+            msg_no_tasks_date: "No tasks for this date",
+            msg_empty: "No plans found",
+            msg_update_status_fail: "Update failed",
+            msg_network_error: "Network error",
+            msg_delete_success: "Deleted",
+            msg_save_fail: "Save failed",
+            msg_require_fields: "Name and start time are required",
+            msg_export_success: "Exported",
+            msg_export_fail: "Export failed",
+            prefix_created: "Created at: ",
+            prefix_start: "Start: ",
+            prefix_end: "End: ",
+            doc_title: "PlanIt - My Personal Roadmap"
+        },
+        zh: {
+            app_title: "PlanIt",
+            login_header: "登录 / 创建",
+            login_desc: "输入口令登录，或留空创建。",
+            login_placeholder: "输入口令或留空",
+            login_btn: "进入系统",
+            search_placeholder: "搜索任务...",
+            filter_collapse: "收起",
+            filter_expand: "展开筛选",
+            filter_status: "状态:",
+            filter_term: "分类:",
+            filter_today: "只看今日到期(未完)",
+            status_all: "全部",
+            status_pending: "未完",
+            status_completed: "已完",
+            status_overdue: "逾期",
+            term_all: "全部",
+            term_short: "短期",
+            term_medium: "中期",
+            term_long: "长期",
+            btn_edit: "编辑任务",
+            form_title_new: "新增项目",
+            form_title_edit: "编辑/复盘计划",
+            label_name: "名称",
+            placeholder_name: "做什么？",
+            label_term: "分类",
+            label_start: "开始",
+            label_end: "结束",
+            label_details: "详情",
+            placeholder_details: "具体要求...",
+            label_mark_complete: "已完成",
+            label_review: "复盘",
+            placeholder_review: "总结感悟...",
+            btn_delete: "删除",
+            btn_save: "保存",
+            settings_title: "设置",
+            settings_lang: "界面语言",
+            btn_copy_code: "复制口令",
+            btn_export: "导出 JSON",
+            btn_logout: "退出登录",
+            msg_logging_in: "跳转中...",
+            msg_creating: "创建中...",
+            msg_login_success: "成功！",
+            msg_login_fail: "码不对哦",
+            msg_copy_success: "复制好啦！",
+            msg_delete_confirm: "确定要删掉这个任务吗？",
+            msg_save_success: "存好啦！",
+            msg_overdue: "已逾期",
+            msg_completed_at: "完成于：",
+            msg_created_at: "创建时间：",
+            msg_no_date: "没设时间",
+            msg_today: "今天",
+            msg_yesterday: "昨天",
+            msg_tomorrow: "明天",
+            label_details_view: "详情：",
+            label_review_view: "复盘：",
+            msg_calendar_not_ready: "日历还没准备好",
+            msg_no_tasks_date: "这一天没任务",
+            msg_empty: "暂无计划内容",
+            msg_update_status_fail: "更新状态失败",
+            msg_network_error: "网络错误",
+            msg_delete_success: "删除成功",
+            msg_save_fail: "保存失败",
+            msg_require_fields: "请填写任务名称和开始时间",
+            msg_export_success: "导出成功",
+            msg_export_fail: "导出失败",
+            prefix_created: "创建于: ",
+            prefix_start: "起: ",
+            prefix_end: "止: ",
+            doc_title: "PlanIt - 我的计划管理"
+        }
+    };
+
+    let currentLang = localStorage.getItem('planit_lang') || 'en';
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        localStorage.setItem('planit_lang', lang);
+        applyi18n();
+        renderPlans();
+    }
+
+    function toggleLanguage() {
+        setLanguage(currentLang === 'en' ? 'zh' : 'en');
+    }
+
+    function applyi18n() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (i18n[currentLang][key]) el.innerText = i18n[currentLang][key];
+        });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (i18n[currentLang][key]) el.placeholder = i18n[currentLang][key];
+        });
+        
+        if (i18n[currentLang].doc_title) {
+            document.title = i18n[currentLang].doc_title;
+        }
+
+        const filterText = document.getElementById('filter-toggle-text');
+        if (filterText) {
+            const panel = document.getElementById('extra-filters');
+            const isHidden = panel && panel.style.maxHeight === '0px';
+            filterText.innerText = isHidden ? i18n[currentLang].filter_expand : i18n[currentLang].filter_collapse;
+        }
+        if (document.getElementById('lang-select')) document.getElementById('lang-select').value = currentLang;
+    }
+
+    const API_BASE = '/planit/api';
+    let globalPlans = [];
+    let currentStatusFilter = 'all';
+    let currentTermFilter = 'all';
+    let currentCode = '';
+    let detailPlanId = '';
+    
+    // Add touch swipe variables
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let isLongPress = false;
+    let isSwiping = false;
+    let longPressTimer = null;
+    let currentTouchCardId = null;
+
+    function showToast(message, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.style.backgroundColor = isError ? 'var(--error-color)' : 'var(--text-main)';
+        toast.style.opacity = '1';
+        setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+    
+    function copyCode() {
+        if (!currentCode) {
+            // Fallback to cookie if currentCode is not set
+            const match = document.cookie.split('; ').find(row => row.startsWith('planit_code='));
+            if (match) currentCode = match.split('=')[1];
+        }
+        
+        if (!currentCode) return;
+        
+        const successMsg = (i18n && i18n[currentLang]) ? i18n[currentLang].msg_copy_success : '口令已复制';
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(currentCode).then(() => {
+                showToast(successMsg);
+            }).catch(err => {
+                fallbackCopyTextToClipboard(currentCode);
+            });
+        } else {
+            fallbackCopyTextToClipboard(currentCode);
+        }
+    }
+
+    function fallbackCopyTextToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                showToast('口令已复制到剪贴板');
+            } else {
+                showToast('复制失败', true);
+            }
+        } catch (err) {
+            showToast('复制失败', true);
+        }
+
+        document.body.removeChild(textArea);
+    }
+
+    async function login() {
+        const code = document.getElementById('code-input').value.trim();
+        try {
+            const res = await fetch(`${API_BASE}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                currentCode = data.code;
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('main-section').classList.remove('hidden');
+                showToast(data.message + ' (口令: ' + data.code + ')');
+                loadData();
+            } else {
+                showToast(data.detail, true);
+            }
+        } catch (e) {
+            showToast('网络错误', true);
+        }
+    }
+
+    // Note: Single logout implementation moved below
+
+    async function loadData() {
+        try {
+            const res = await fetch(`${API_BASE}/data`);
+            if (res.status === 401) {
+                // If unauthorized, just reload to show login screen
+                location.reload();
+                return;
+            }
+            const data = await res.json();
+            globalPlans = data.plans;
+            currentCode = data.code;
+            renderPlans();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function toggleFilters() {
+        const extra = document.getElementById('extra-filters');
+        const icon = document.getElementById('filter-toggle-icon');
+        const text = document.getElementById('filter-toggle-text');
+        const scrollArea = document.querySelector('.main-scroll-area');
+        const sidebar = document.getElementById('timeline-sidebar');
+        
+        if (extra.style.maxHeight === '0px') {
+            // Expand
+            extra.style.maxHeight = '200px';
+            extra.style.opacity = '1';
+            extra.style.marginTop = '8px';
+            icon.style.transform = 'rotate(0deg)';
+            text.innerText = '收起筛选';
+            scrollArea.style.paddingTop = '260px';
+            if (sidebar) {
+                sidebar.style.top = '250px';
+                sidebar.style.maxHeight = 'calc(100vh - 270px)';
+            }
+        } else {
+            // Collapse
+            extra.style.maxHeight = '0px';
+            extra.style.opacity = '0';
+            extra.style.marginTop = '0px';
+            icon.style.transform = 'rotate(180deg)';
+            text.innerText = '展开筛选';
+            scrollArea.style.paddingTop = '130px';
+            if (sidebar) {
+                sidebar.style.top = '120px';
+                sidebar.style.maxHeight = 'calc(100vh - 140px)';
+            }
+        }
+    }
+
+    function setStatusFilter(filter, btnElement) {
+        currentStatusFilter = filter;
+        btnElement.parentElement.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+        renderPlans();
+    }
+
+    function setTermFilter(filter, btnElement) {
+        currentTermFilter = filter;
+        btnElement.parentElement.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+        renderPlans();
+    }
+
+    function renderPlans() {
+        const container = document.getElementById('plans-container');
+        const sidebar = document.getElementById('timeline-sidebar');
+        const showTodayOnly = document.getElementById('filter-today').checked;
+        container.innerHTML = '';
+        sidebar.innerHTML = '';
+
+        let filtered = globalPlans;
+        
+        // 0. Search text
+        const searchInput = document.getElementById('search-input');
+        const searchText = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        if (searchText) {
+            filtered = filtered.filter(p => p.name.toLowerCase().includes(searchText) || (p.details && p.details.toLowerCase().includes(searchText)));
+        }
+        
+        // 1. Filter by today's deadline uncompleted
+        if (showTodayOnly) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            filtered = filtered.filter(p => {
+                if (p.completed) return false;
+                if (!p.time_end) return false;
+                return p.time_end.startsWith(todayStr) || p.time_end.split(' ')[0] === todayStr; // handling different stored formats
+            });
+        }
+        
+        // 2. Filter by status
+        const now = new Date();
+        if (currentStatusFilter === 'pending') {
+            filtered = filtered.filter(p => !p.completed);
+        } else if (currentStatusFilter === 'completed') {
+            filtered = filtered.filter(p => p.completed);
+        } else if (currentStatusFilter === 'overdue') {
+            filtered = filtered.filter(p => {
+                if (p.completed) return false;
+                if (!p.time_end) return false;
+                const endDate = new Date(p.time_end);
+                return endDate < now;
+            });
+        }
+        
+        // 3. Filter by term
+        if (currentTermFilter !== 'all') {
+            filtered = filtered.filter(p => p.term === currentTermFilter);
+        }
+
+        // Put completed at bottom generally
+        filtered = [...filtered].sort((a, b) => (a.completed === b.completed) ? 0 : a.completed ? 1 : -1);
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div style="text-align:center; color: var(--text-secondary); margin-top: 40px;">${i18n[currentLang].msg_empty}</div>`;
+            return;
+        }
+
+        const termMap = {
+            'short': { label: i18n[currentLang].term_short, class: 'short' },
+            'medium': { label: i18n[currentLang].term_medium, class: 'medium' },
+            'long': { label: i18n[currentLang].term_long, class: 'long' }
+        };
+
+        let currentDateStr = '';
+        filtered.forEach(p => {
+            let dayLevel = p.created_at ? p.created_at.split(' ')[0] : 'N/A';
+            
+            // Format the target dates to be more readable
+            const noDate = i18n[currentLang].msg_no_date;
+            let formattedTimeStart = p.time_start || noDate;
+            if (p.time_start && p.time_start.includes('T')) {
+                const dateObj = new Date(p.time_start);
+                formattedTimeStart = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+            }
+
+            let formattedTimeEnd = p.time_end || noDate;
+            if (p.time_end && p.time_end.includes('T')) {
+                const dateObj = new Date(p.time_end);
+                formattedTimeEnd = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+            }
+
+            if (dayLevel !== currentDateStr) {
+                currentDateStr = dayLevel;
+                const safeDateId = `date-${dayLevel.replace(/-/g, '')}`;
+                
+                let shortDate = 'N/A';
+                if (dayLevel !== 'N/A') {
+                    const parts = dayLevel.split('-');
+                    if (parts.length === 3) shortDate = `${parts[1]}/${parts[2]}`;
+                }
+
+                sidebar.innerHTML += `
+                    <div id="sidebar-${safeDateId}" class="sidebar-date-item" style="font-size: 10px; color: var(--text-secondary); margin-bottom: 24px; cursor: pointer; user-select: none; transition: all 0.2s;" onclick="document.getElementById('${safeDateId}').scrollIntoView({behavior: 'smooth'})">
+                        <div class="sidebar-dot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--border-color); margin: 0 auto 4px; transition: all 0.2s;"></div>
+                        ${shortDate}
+                    </div>
+                `;
+                
+                container.innerHTML += `<div id="${safeDateId}" class="date-anchor" data-date-id="sidebar-${safeDateId}" style="height: 1px; visibility: hidden; margin-top: -260px; padding-bottom: 260px;"></div>`;
+                container.innerHTML += `<div style="font-weight: 500; color: var(--text-secondary); font-size: 13px; margin: 16px 0 8px 0;">${i18n[currentLang].prefix_created} ${dayLevel}</div>`;
+            }
+
+            const termInfo = termMap[p.term] || termMap['short'];
+            const completedClass = p.completed ? 'completed' : `term-${p.term}`;
+            const checkboxHtml = `<input type="checkbox" style="transform: scale(1.2); margin: 0; cursor: pointer;" ${p.completed ? 'checked' : ''} onclick="event.stopPropagation(); toggleComplete('${p.id}', this.checked)">`;
+            
+            const overdueSpan = (!p.completed && p.time_end && new Date(p.time_end) < now) ? `<span style="color:var(--error-color); font-weight:bold; font-size:12px;"> ⚠️ ${i18n[currentLang].msg_overdue}</span>` : '';
+
+            container.innerHTML += `
+                <div class="plan-card ${completedClass}" id="card-${p.id}" onclick="handleCardClick(event, '${p.id}')"
+                     ontouchstart="handleTouchStart(event, '${p.id}', ${p.completed})" 
+                     ontouchmove="handleTouchMove(event, '${p.id}')"
+                     ontouchend="handleTouchEnd(event, '${p.id}', ${p.completed})"
+                     ontouchcancel="handleTouchCancel(event)">
+                    <div class="pc-header" style="pointer-events: none;">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; width: 100%;">
+                            <div style="display: flex; align-items: flex-start; gap: 12px; flex: 1; margin-right: 12px;">
+                                <div style="margin-top: 2px;">
+                                    ${checkboxHtml}
+                                </div>
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    <div class="pc-title" style="margin: 0; line-height: 1.4; font-size: 16px;">${p.name}</div>
+                                    <div class="pc-meta" style="pointer-events: none; display: flex; align-items: center; gap: 6px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: ${p.completed ? 'var(--text-secondary)' : 'var(--accent-color)'};">
+                                            <circle cx="12" cy="12" r="10"></circle>
+                                            <polyline points="12 6 12 12 16 14"></polyline>
+                                        </svg>
+                                        <span style="font-size: 13px; color: ${p.completed ? 'var(--text-secondary)' : 'var(--text-main)'};">${formattedTimeEnd}${overdueSpan}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="pc-tag ${termInfo.class}" style="flex-shrink: 0;">${termInfo.label}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        highlightSidebarDate();
+        
+        // Update separated calendar component data
+        if (window.updateCalendarData) {
+            window.updateCalendarData(globalPlans);
+        }
+    }
+
+    function highlightSidebarDate() {
+        const anchors = Array.from(document.querySelectorAll('.date-anchor'));
+        if (!anchors.length) return;
+        
+        let activeAnchor = anchors[0];
+        const offset = 280;
+        
+        for (let i = 0; i < anchors.length; i++) {
+            const rect = anchors[i].getBoundingClientRect();
+            if (rect.top <= offset) {
+                activeAnchor = anchors[i];
+            } else {
+                break;
+            }
+        }
+        
+        const sidebarId = activeAnchor.getAttribute('data-date-id');
+        
+        document.querySelectorAll('.sidebar-date-item').forEach(item => {
+            item.style.color = 'var(--text-secondary)';
+            item.style.fontWeight = 'normal';
+            const dot = item.querySelector('.sidebar-dot');
+            if (dot) {
+                dot.style.background = 'var(--border-color)';
+                dot.style.transform = 'scale(1)';
+            }
+        });
+        
+        const activeItem = document.getElementById(sidebarId);
+        if (activeItem) {
+            activeItem.style.color = 'var(--accent-color)';
+            activeItem.style.fontWeight = 'bold';
+            const dot = activeItem.querySelector('.sidebar-dot');
+            if (dot) {
+                dot.style.background = 'var(--accent-color)';
+                dot.style.transform = 'scale(1.5)';
+            }
+        }
+    }
+
+    window.addEventListener('scroll', highlightSidebarDate);
+
+    async function toggleComplete(id, isCompleted) {
+        const plan = globalPlans.find(p => p.id === id);
+        if (!plan) return;
+        
+        plan.completed = isCompleted;
+        
+        try {
+            const res = await fetch(`${API_BASE}/plans/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(plan)
+            });
+
+            if (res.ok) {
+                loadData(); // Reload and re-render
+            } else {
+                showToast(i18n[currentLang].msg_update_status_fail, true);
+                plan.completed = !isCompleted; // revert
+                renderPlans();
+            }
+        } catch (e) {
+            showToast(i18n[currentLang].msg_network_error, true);
+            plan.completed = !isCompleted; // revert
+            renderPlans();
+        }
+    }
+
+    function toggleReviewSection() {
+        const checkbox = document.getElementById('plan-completed');
+        const reviewArea = document.getElementById('review-input-area');
+        if (checkbox.checked) {
+            reviewArea.classList.remove('hidden');
+        } else {
+            reviewArea.classList.add('hidden');
+        }
+    }
+
+    function handleTouchStart(e, id, isCompleted) {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+        currentTouchCardId = id;
+        isLongPress = false;
+        isSwiping = false;
+
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+            card.style.transition = 'none'; // 移除过渡动画以便实时跟随手指
+        }
+
+        longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            if (!isSwiping) {
+                if ("vibrate" in navigator) navigator.vibrate(50);
+                toggleComplete(id, !isCompleted);
+            }
+        }, 500); // 500ms 触发长按
+    }
+
+    function handleTouchMove(e, id) {
+        if (isLongPress) return;
+        const currentX = e.changedTouches[0].screenX;
+        const currentY = e.changedTouches[0].screenY;
+        const deltaX = currentX - touchStartX;
+        const deltaY = currentY - touchStartY;
+
+        // 判断是否为垂直滚动，如果是则取消长按且不进行水平滑动
+        if (!isSwiping && Math.abs(deltaY) > Math.abs(deltaX)) {
+            clearTimeout(longPressTimer);
+            return;
+        }
+
+        if (Math.abs(deltaX) > 10) {
+            clearTimeout(longPressTimer);
+            isSwiping = true;
+        }
+
+        // 仅处理左滑
+        if (isSwiping && deltaX < 0) {
+            if (e.cancelable) e.preventDefault(); // 阻止页面默认滚动行为
+            const card = document.getElementById(`card-${id}`);
+            if (card) {
+                const tx = Math.max(-100, deltaX);
+                card.style.transform = `translateX(${tx}px)`;
+            }
+        }
+    }
+
+    function handleTouchEnd(e, id, isCompleted) {
+        clearTimeout(longPressTimer);
+        touchEndX = e.changedTouches[0].screenX;
+        
+        const card = document.getElementById(`card-${id}`);
+        if (card) {
+            card.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        }
+        
+        if (isLongPress) {
+            if (e.cancelable) e.preventDefault();
+            return;
+        }
+
+        const deltaX = touchEndX - touchStartX;
+        
+        // 判定有效左滑 (且为活动滑动状态)
+        if (isSwiping && deltaX < -50) {
+            if (e.cancelable) e.preventDefault();
+            if (card) {
+                card.style.transform = `translateX(-100px)`; 
+                setTimeout(() => {
+                    card.style.transform = `translateX(0)`;
+                    setTimeout(() => {
+                        editPlan(id);
+                    }, 250); // 等待回弹动画结束后再打开弹窗避免卡顿
+                }, 100);
+            } else {
+                editPlan(id);
+            }
+            return;
+        }
+
+        // 滑动未达阈值，恢复原位
+        if (card && isSwiping) {
+            card.style.transform = `translateX(0)`;
+        }
+    }
+
+    function handleTouchCancel(e) {
+        clearTimeout(longPressTimer);
+        const card = document.getElementById(`card-${currentTouchCardId}`);
+        if (card) {
+            card.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            card.style.transform = `translateX(0)`;
+        }
+    }
+
+    function handleCardClick(e, id) {
+        if (isLongPress || isSwiping) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+        openPlanDetail(id);
+    }
+
+    function formatDetailDate(timeStr) {
+        if (!timeStr) return '未设置';
+        if (timeStr.includes('T')) {
+            const dateObj = new Date(timeStr);
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')} ${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+        }
+        return timeStr;
+    }
+
+    function openPlanDetail(id) {
+        detailPlanId = id;
+        const plan = globalPlans.find(p => p.id === id);
+        if (!plan) return;
+
+        document.getElementById('plan-detail-title').innerText = plan.name || 'N/A';
+        document.getElementById('plan-detail-created').innerText = `${i18n[currentLang].prefix_created}${plan.created_at ? plan.created_at.split(' ')[0] : 'N/A'}`;
+        
+        const termMap = {
+            'short': { label: i18n[currentLang].term_short, class: 'short' },
+            'medium': { label: i18n[currentLang].term_medium, class: 'medium' },
+            'long': { label: i18n[currentLang].term_long, class: 'long' }
+        };
+        const termInfo = termMap[plan.term] || termMap['short'];
+        const termElement = document.getElementById('plan-detail-term');
+        termElement.className = `pc-tag ${termInfo.class}`;
+        termElement.innerText = termInfo.label;
+
+        const startFormatted = formatDetailDate(plan.time_start);
+        const endFormatted = formatDetailDate(plan.time_end);
+        
+        document.getElementById('plan-detail-start').innerHTML = `<strong>${i18n[currentLang].prefix_start}</strong> ${startFormatted}`;
+        document.getElementById('plan-detail-end').innerHTML = `<strong>${i18n[currentLang].prefix_end}</strong> <span style="color: ${plan.completed ? 'var(--text-secondary)' : 'var(--error-color)'}">${endFormatted}</span>`;
+
+        document.getElementById('plan-detail-content').innerHTML = (plan.details || '...').replace(/\n/g, '<br>');
+
+        const reviewWrapper = document.getElementById('plan-detail-review-wrapper');
+        const reviewContent = document.getElementById('plan-detail-review');
+        if (plan.completed && plan.review) {
+            reviewWrapper.classList.remove('hidden');
+            reviewContent.innerHTML = plan.review.replace(/\n/g, '<br>');
+        } else {
+            reviewWrapper.classList.add('hidden');
+        }
+
+        document.getElementById('plan-detail-modal').classList.add('active');
+        document.body.classList.add('no-scroll');
+    }
+
+    function closePlanDetailModal() {
+        document.getElementById('plan-detail-modal').classList.remove('active');
+        if (!document.getElementById('plan-modal').classList.contains('active')) {
+            document.body.classList.remove('no-scroll');
+        }
+    }
+
+    function editPlanFromDetail() {
+        closePlanDetailModal();
+        if (detailPlanId) {
+            setTimeout(() => {
+                editPlan(detailPlanId);
+            }, 100);
+        }
+    }
+
+    function openPlanModal() {
+        document.getElementById('plan-id').value = '';
+        document.getElementById('plan-name').value = '';
+        document.getElementById('plan-term').value = 'short';
+        document.getElementById('plan-time-start').value = '';
+        document.getElementById('plan-time-end').value = '';
+        document.getElementById('plan-details').value = '';
+        document.getElementById('plan-completed').checked = false;
+        document.getElementById('plan-review').value = '';
+        
+        document.getElementById('review-section').classList.add('hidden');
+        
+        document.getElementById('plan-form-title').innerText = i18n[currentLang].form_title_new;
+        document.getElementById('btn-delete-plan').classList.add('hidden');
+        
+        document.getElementById('plan-modal').classList.add('active');
+        document.body.classList.add('no-scroll');
+    }
+
+    function closePlanModal() {
+        document.getElementById('plan-modal').classList.remove('active');
+        document.body.classList.remove('no-scroll');
+    }
+
+    async function deletePlan() {
+        const id = document.getElementById('plan-id').value;
+        if (!id) return;
+
+        const confirmText = currentLang === 'zh' ? '确定要删除这个项目吗？' : 'Are you sure you want to delete this plan?';
+        if (!confirm(confirmText)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/plans/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                closePlanModal();
+                loadData();
+                showToast(i18n[currentLang].msg_delete_success);
+            } else {
+                showToast(i18n[currentLang].msg_delete_fail || '删除失败', true);
+            }
+        } catch (e) {
+            showToast(i18n[currentLang].msg_network_error, true);
+        }
+    }
+
+    function openSettingsModal() {
+        document.getElementById('settings-modal').classList.add('active');
+        document.body.classList.add('no-scroll');
+        if (document.getElementById('lang-select')) document.getElementById('lang-select').value = currentLang;
+    }
+
+    function closeSettingsModal() {
+        document.getElementById('settings-modal').classList.remove('active');
+        if (!document.getElementById('plan-modal').classList.contains('active') && !document.getElementById('plan-detail-modal').classList.contains('active')) {
+            document.body.classList.remove('no-scroll');
+        }
+    }
+
+    function exportJSON() {
+        try {
+            const dataStr = JSON.stringify(globalPlans, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `planit_export_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(i18n[currentLang].msg_export_success);
+        } catch (e) {
+            showToast(i18n[currentLang].msg_export_fail, true);
+        }
+    }
+
+    function editPlan(id) {
+        const plan = globalPlans.find(p => p.id === id);
+        if (!plan) return;
+
+        document.getElementById('plan-id').value = plan.id;
+        document.getElementById('plan-name').value = plan.name;
+        document.getElementById('plan-term').value = plan.term;
+        document.getElementById('plan-time-start').value = plan.time_start || '';
+        document.getElementById('plan-time-end').value = plan.time_end || '';
+        document.getElementById('plan-details').value = plan.details;
+        document.getElementById('plan-completed').checked = plan.completed;
+        document.getElementById('plan-review').value = plan.review || '';
+        
+        document.getElementById('review-section').classList.remove('hidden');
+        
+        const reviewArea = document.getElementById('review-input-area');
+        if (plan.completed) {
+            reviewArea.classList.remove('hidden');
+        } else {
+            reviewArea.classList.add('hidden');
+        }
+
+        // Add explicit event listener to toggle review section based on completion check
+        document.getElementById('plan-completed').onchange = function() {
+            if (this.checked) {
+                reviewArea.classList.remove('hidden');
+            } else {
+                reviewArea.classList.add('hidden');
+            }
+        };
+
+        document.getElementById('plan-form-title').innerText = i18n[currentLang].form_title_edit;
+        document.getElementById('btn-delete-plan').classList.remove('hidden');
+        
+        document.getElementById('plan-modal').classList.add('active');
+        document.body.classList.add('no-scroll');
+    }
+
+    async function savePlan() {
+        const id = document.getElementById('plan-id').value;
+        const name = document.getElementById('plan-name').value.trim();
+        const term = document.getElementById('plan-term').value;
+        const time_start = document.getElementById('plan-time-start').value.trim();
+        let time_end = document.getElementById('plan-time-end').value.trim();
+        const details = document.getElementById('plan-details').value.trim();
+        
+        // Ensure new plans cannot be marked as completed directly during creation
+        const completed = id ? document.getElementById('plan-completed').checked : false;
+        const review = document.getElementById('plan-review').value.trim();
+
+        if (!name || !time_start) {
+            showToast(i18n[currentLang].msg_require_fields, true);
+            return;
+        }
+
+        if (!time_end) {
+            time_end = time_start;
+        }
+
+        const payload = {
+            id, name, term, time_start, time_end, details, completed, review, created_at: ""
+        };
+
+        try {
+            let url = `${API_BASE}/plans`;
+            let method = 'POST';
+            
+            if (id) {
+                url = `${API_BASE}/plans/${id}`;
+                method = 'PUT';
+            }
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                closePlanModal();
+                loadData();
+                showToast(i18n[currentLang].msg_save_success);
+            } else {
+                showToast(i18n[currentLang].msg_save_fail, true);
+            }
+        } catch (e) {
+            showToast(i18n[currentLang].msg_network_error, true);
+        }
+    }
+    
+    async function loadData() {
+        try {
+            const res = await fetch(`${API_BASE}/data`);
+            if (res.status === 401) {
+                // If unauthorized and we have a cookie, something is wrong, logout to clear
+                if (getCookieCode()) logout();
+                return;
+            }
+            const data = await res.json();
+            globalPlans = data.plans;
+            currentCode = data.code;
+            renderPlans();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function getCookieCode() {
+        const match = document.cookie.split('; ').find(row => row.startsWith('planit_code='));
+        return match ? match.split('=')[1] : null;
+    }
+
+    async function login() {
+        const codeInput = document.getElementById('code-input');
+        const code = codeInput.value.trim();
+        
+        showToast(i18n[currentLang].msg_logging_in);
+
+        try {
+            const res = await fetch(`${API_BASE}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                showToast(i18n[currentLang].msg_login_success);
+                // Cookie planit_code is set by backend
+                setTimeout(() => {
+                    initApp();
+                }, 500);
+            } else {
+                showToast(data.detail || i18n[currentLang].msg_login_fail, true);
+            }
+        } catch (e) {
+            showToast(i18n[currentLang].msg_network_error, true);
+        }
+    }
+
+    async function initApp() {
+        const loginSection = document.getElementById('login-section');
+        const mainSection = document.getElementById('main-section');
+        const langToggleLogin = document.getElementById('lang-toggle-login');
+
+        applyi18n(); // Ensure i18n applied early
+
+        // Check login status first
+        try {
+            const res = await fetch(`${API_BASE}/data`);
+            if (res.ok) {
+                loginSection.classList.add('hidden');
+                if (langToggleLogin) langToggleLogin.classList.add('hidden');
+                mainSection.classList.remove('hidden');
+                loadData();
+            } else {
+                loginSection.classList.remove('hidden');
+                if (langToggleLogin) langToggleLogin.classList.remove('hidden');
+                mainSection.classList.add('hidden');
+            }
+        } catch (e) {
+            console.error('App init failed:', e);
+            loginSection.classList.remove('hidden');
+        }
+    }
+
+    async function logout() {
+        closeSettingsModal();
+        try {
+            await fetch(`${API_BASE}/logout`, { method: 'POST' });
+        } catch (e) {
+            console.error('Logout failed:', e);
+        }
+        
+        document.getElementById('main-section').classList.add('hidden');
+        document.getElementById('login-section').classList.remove('hidden');
+        document.getElementById('code-input').value = '';
+        currentCode = '';
+        
+        // Final fallback to clear cookies via JS if needed
+        const pastDate = "expires=Thu, 01 Jan 1970 00:00:00 UTC";
+        document.cookie = `planit_code=; ${pastDate}; path=/; SameSite=Lax`;
+        document.cookie = `planit_token=; ${pastDate}; path=/; SameSite=Lax`;
+        
+        globalPlans = [];
+        const plansContainer = document.getElementById('plans-container');
+        if (plansContainer) plansContainer.innerHTML = '';
+        
+        location.reload();
+    }
+
+    function showToast(msg, isError = false) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.backgroundColor = isError ? 'var(--error-color)' : 'var(--text-main)';
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 3000);
+    }
+
+    // Init auto login check
+    window.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
